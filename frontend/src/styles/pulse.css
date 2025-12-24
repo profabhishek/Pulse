@@ -1,0 +1,98 @@
+:root {
+  --bg-server: #1e1f22;
+  --bg-sidebar: #2b2d31;
+  --bg-main: #313338;
+  --bg-input: #383a40;
+  --text: #ffffff;
+  --muted: #b5bac1;
+  --accent: #5865f2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-main);
+  color: var(--text);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+.channel {
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+}
+
+.channel svg {
+  color: #c7ccd1; /* brighter muted */
+}
+
+.channel:hover {
+  background: #35373c;
+  color: var(--text);
+}
+
+.channel:hover svg {
+  color: var(--text);
+}
+
+.channel.active {
+  background: #404249;
+  color: var(--text);
+  position: relative;
+}
+
+.channel.active svg {
+  color: var(--text);
+}
+
+/* Left accent bar (Discord-like) */
+.channel.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 4px 4px 0;
+}
+
+
+.channel:not(.active):hover {
+  background: #35373c;
+}
+
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #2b2d31;
+  padding: 20px;
+  border-radius: 8px;
+  width: 320px;
+}
+
+.modal input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+}
