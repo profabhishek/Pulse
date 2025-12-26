@@ -3,9 +3,18 @@ import SpeakerIcon from "./icons/SpeakerIcon";
 import TextChannelIcon from "./icons/TextChannelIcon";
 
 export default function ChannelSidebar() {
-  const { currentChannel, setCurrentChannel } = useApp();
+  const { currentChannel, setCurrentChannel, unread } = useApp();
 
   const isActive = (id) => currentChannel.id === id;
+
+  const renderUnread = (count) => {
+    if (!count) return null;
+    return (
+      <span className="unread-badge">
+        {count >= 10 ? "9+" : count}
+      </span>
+    );
+  };
 
   return (
     <div style={{ width: "240px", background: "#2b2d31", padding: "10px" }}>
@@ -16,7 +25,8 @@ export default function ChannelSidebar() {
         onClick={() => setCurrentChannel({ id: "general", type: "TEXT" })}
       >
         <TextChannelIcon />
-        general
+        <span>general</span>
+        {renderUnread(unread.general)}
       </div>
 
       <div
@@ -24,7 +34,8 @@ export default function ChannelSidebar() {
         onClick={() => setCurrentChannel({ id: "random", type: "TEXT" })}
       >
         <TextChannelIcon />
-        random
+        <span>random</span>
+        {renderUnread(unread.random)}
       </div>
 
       <h4 style={{ marginTop: "20px" }}>VOICE</h4>

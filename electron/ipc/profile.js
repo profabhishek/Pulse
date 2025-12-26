@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const db = require("../db");
 
+console.log("PROFILE IPC LOADED");
 /**
  * Get existing profile
  */

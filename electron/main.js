@@ -1,57 +1,72 @@
 const { app, BrowserWindow, protocol, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
-Menu.setApplicationMenu(null)
-// 🔥 Register custom protocol BEFORE app is ready
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: "pulse-avatar",
-    privileges: {
-      secure: true,
-      standard: true
-    }
-  }
-]);
 
-// 🔥 Register IPC handlers
-require("./ipc/profile");
-
-console.log(__dirname)
+// 🔥 FORCE LOAD IPC HANDLERS (ASAR-SAFE)
+require(path.join(__dirname, "ipc", "profile.js"));
 
 let mainWindow;
 
 function createWindow() {
+  console.log("MAIN.JS LOADED");
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, "assets/icons/app.ico"),
     backgroundColor: "#313338",
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true
     }
   });
 
-  // Load Vite dev server
-  mainWindow.loadURL("http://localhost:5173");
+  // 🔥 REMOVE DEFAULT MENU
+  Menu.setApplicationMenu(null);
+  mainWindow.setMenuBarVisibility(false);
+
+  // 🔥 FORCE DEVTOOLS (TEMPORARY – REMOVE LATER)
+  mainWindow.webContents.openDevTools({ mode: "detach" });
+
+  const isDev = !app.isPackaged;
+
+  if (isDev) {
+    console.log("Loading DEV URL");
+    mainWindow.loadURL("http://localhost:5173");
+  } else {
+    const prodPath = path.join(__dirname, "renderer", "index.html");
+    console.log("Loading PROD FILE:", prodPath);
+    mainWindow.loadFile(prodPath);
+  }
+
+  // 🔥 LOG LOAD ISSUES
+  mainWindow.webContents.on("did-finish-load", () => {
+    console.log("RENDERER LOADED SUCCESSFULLY");
+  });
+
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_event, code, desc, url) => {
+      console.error("FAILED TO LOAD:", code, desc, url);
+    }
+  );
 }
 
 app.whenReady().then(() => {
-  // 🔥 Handle pulse-avatar:// protocol
+  // 🔥 CUSTOM PROTOCOL FOR AVATARS
   protocol.registerFileProtocol("pulse-avatar", (request, callback) => {
-  const fileName = request.url
-    .replace("pulse-avatar://", "")
-    .replace(/\/+$/, ""); // 🔥 strip trailing slash
+    const fileName = request.url
+      .replace("pulse-avatar://", "")
+      .replace(/\/+$/, "");
 
-  const avatarPath = path.join(
-    app.getPath("userData"),
-    "avatars",
-    fileName
-  );
+    const avatarPath = path.join(
+      app.getPath("userData"),
+      "avatars",
+      fileName
+    );
 
-  callback({ path: avatarPath });
-});
-
+    callback({ path: avatarPath });
+  });
 
   createWindow();
 

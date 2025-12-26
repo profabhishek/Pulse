@@ -1,7 +1,10 @@
 import mqtt from "mqtt";
 
 let client = null;
-const BASE_TOPIC = "pulse/dev/inder";
+
+// 🔥 Shared channels (rooms)
+const TEXT_CHANNELS = ["general", "random"];
+const BASE_TOPIC = "pulse/dev/sugardaddy";
 
 export function connectMQTT(onMessage) {
   if (client) return;
@@ -13,21 +16,30 @@ export function connectMQTT(onMessage) {
   });
 
   client.on("message", (topic, payload) => {
-  console.log("📩 MQTT message", topic, payload.toString());
-  const message = JSON.parse(payload.toString());
-  onMessage(topic, message);
-});
+    const message = JSON.parse(payload.toString());
+    onMessage(topic, message);
+  });
 }
 
-export function subscribeTextChannel(channelId) {
+// -----------------------------
+// Subscribe to ALL text channels
+// -----------------------------
+export function subscribeToAllTextChannels() {
   if (!client) return;
-  client.subscribe(`${BASE_TOPIC}/text/${channelId}`);
-  console.log("📡 Subscribed to", `${BASE_TOPIC}/text/${channelId}`);
 
+  TEXT_CHANNELS.forEach(channelId => {
+    const topic = `${BASE_TOPIC}/text/${channelId}`;
+    client.subscribe(topic);
+    console.log("📡 Subscribed to", topic);
+  });
 }
 
+// -----------------------------
+// Publish message (shared room)
+// -----------------------------
 export function publishTextMessage(channelId, message) {
   if (!client) return;
+
   client.publish(
     `${BASE_TOPIC}/text/${channelId}`,
     JSON.stringify(message)

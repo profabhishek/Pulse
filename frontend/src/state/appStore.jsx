@@ -6,8 +6,7 @@ import {
 } from "react";
 
 import {
-  connectMQTT,
-  subscribeTextChannel
+  connectMQTT
 } from "../services/mqttService";
 
 /**
@@ -32,8 +31,15 @@ export function AppProvider({ children }) {
   // -----------------------------
   const [messages, setMessages] = useState({
     general: [],
-    random: [],
-    gaming: []
+    random: []
+  });
+
+  // -----------------------------
+  // 🔥 Unread counts per channel
+  // -----------------------------
+  const [unread, setUnread] = useState({
+    general: 0,
+    random: 0
   });
 
   // -----------------------------
@@ -50,23 +56,39 @@ export function AppProvider({ children }) {
   // -----------------------------
   useEffect(() => {
     connectMQTT((topic, message) => {
-      // topic example:
-      // pulse/dev/inder/text/general
+      // topic: pulse/dev/text/general
       const channelId = topic.split("/").pop();
 
+      // append message
       setMessages(prev => ({
         ...prev,
         [channelId]: [...(prev[channelId] || []), message]
       }));
+
+      // 🔥 increment unread if not active
+      setUnread(prev => {
+        if (channelId === currentChannel.id) return prev;
+
+        const current = prev[channelId] || 0;
+        return {
+          ...prev,
+          [channelId]: Math.min(current + 1, 10)
+        };
+      });
     });
-  }, []);
+  }, [currentChannel.id]);
 
   // -----------------------------
-  // Subscribe when channel changes
+  // Clear unread when channel opens
   // -----------------------------
   useEffect(() => {
-    subscribeTextChannel(currentChannel.id);
-  }, [currentChannel.id]);
+    if (currentChannel.type === "TEXT") {
+      setUnread(prev => ({
+        ...prev,
+        [currentChannel.id]: 0
+      }));
+    }
+  }, [currentChannel.id, currentChannel.type]);
 
   // -----------------------------
   // Provide state
@@ -77,7 +99,7 @@ export function AppProvider({ children }) {
         currentChannel,
         setCurrentChannel,
         messages,
-        setMessages,
+        unread,
         voice,
         setVoice
       }}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ProfileModal from "./components/ProfileModal";
 import MainLayout from "./MainLayout";
+import { subscribeToAllTextChannels } from "./services/mqttService";
 
 export default function App() {
   const [profile, setProfile] = useState(null);
@@ -14,10 +15,14 @@ export default function App() {
 
     if (!p) {
       setShowProfileModal(true);
+    } else {
+      // SUBSCRIBE TO ALL TEXT CHANNELS ON APP START
+      subscribeToAllTextChannels();
     }
   };
 
   useEffect(() => {
+    document.title = "Pulse";
     loadProfile();
   }, []);
 
@@ -30,7 +35,7 @@ export default function App() {
           existingProfile={profile}
           onComplete={() => {
             setShowProfileModal(false);
-            loadProfile(); // 🔥 refresh profile without reload
+            loadProfile(); // refresh profile + subscribe
           }}
         />
       )}
