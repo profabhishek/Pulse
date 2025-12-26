@@ -40,14 +40,3 @@
 .read-the-docs {
   color: #888;
 }
-
-
-.unread-badge {
-  background: #ed4245;
-  color: white;
-  border-radius: 12px;
-  padding: 2px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  margin-left: auto;
-}

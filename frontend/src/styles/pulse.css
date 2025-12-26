@@ -105,12 +105,14 @@ body {
 }
 
 .topbar {
-  height: 48px;
+  position: relative;          /* 🔥 important */
+  height: 32px;
   background: #1e1f22;
   display: flex;
   align-items: center;
   justify-content: center;
-  -webkit-app-region: drag; /* 🔥 draggable */
+  -webkit-app-region: drag;
+  user-select: none;
 }
 
 .topbar-center {
@@ -137,3 +139,36 @@ body {
   margin-left: auto;
 }
 
+.window-controls {
+  position: absolute;
+  top: 4px;                    /* 🔥 move to top */
+  right: 6px;                  /* 🔥 right edge */
+  display: flex;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls button {
+  width: 32px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #b5bac1;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.window-controls button:hover {
+  background: #2b2d31;
+  color: white;
+}
+
+.window-controls button.close:hover {
+  background: #ed4245;
+  color: white;
+}

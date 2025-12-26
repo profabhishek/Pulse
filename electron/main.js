@@ -1,4 +1,4 @@
-const { app, BrowserWindow, protocol, Menu } = require("electron");
+const { app, BrowserWindow, protocol, Menu, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -81,4 +81,24 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+
+ipcMain.on("window:minimize", () => {
+  BrowserWindow.getFocusedWindow()?.minimize();
+});
+
+ipcMain.on("window:maximize", () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (!win) return;
+
+  if (win.isMaximized()) {
+    win.unmaximize();
+  } else {
+    win.maximize();
+  }
+});
+
+ipcMain.on("window:close", () => {
+  BrowserWindow.getFocusedWindow()?.close();
 });
