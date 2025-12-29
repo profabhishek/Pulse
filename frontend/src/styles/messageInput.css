@@ -59,7 +59,6 @@
   border-radius: 10px;
   cursor: not-allowed;
   opacity: 0.6;
-  transition: all 0.05s ease;
 }
 
 .send-btn.active {
