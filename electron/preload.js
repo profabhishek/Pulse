@@ -12,3 +12,8 @@ contextBridge.exposeInMainWorld("windowControls", {
   maximize: () => ipcRenderer.send("window:maximize"),
   close: () => ipcRenderer.send("window:close")
 });
+
+contextBridge.exposeInMainWorld("electronAPI", {
+  openFiles: () => ipcRenderer.invoke("files:open"),
+  openEmoji: () => ipcRenderer.invoke("emoji:open")
+});

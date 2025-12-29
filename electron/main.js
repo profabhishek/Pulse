@@ -1,6 +1,8 @@
 const { app, BrowserWindow, protocol, Menu, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { dialog } = require("electron");
+const mime = require("mime-types");
 
 // 🔥 FORCE LOAD IPC HANDLERS (ASAR-SAFE)
 require(path.join(__dirname, "ipc", "profile.js"));
@@ -102,3 +104,37 @@ ipcMain.on("window:maximize", () => {
 ipcMain.on("window:close", () => {
   BrowserWindow.getFocusedWindow()?.close();
 });
+
+ipcMain.handle("files:open", async () => {
+  const result = await dialog.showOpenDialog(
+    BrowserWindow.getFocusedWindow(),
+    {
+      properties: ["openFile", "multiSelections"],
+      filters: [
+        { name: "Images", extensions: ["png", "jpg", "jpeg", "gif"] },
+        { name: "Videos", extensions: ["mp4", "webm", "mov"] },
+        { name: "PDF", extensions: ["pdf"] },
+        { name: "All Files", extensions: ["*"] }
+      ]
+    }
+  );
+
+  if (result.canceled) return [];
+
+  return result.filePaths.map((filePath) => {
+    const buffer = fs.readFileSync(filePath);
+    const type = mime.lookup(filePath) || "application/octet-stream";
+
+    return {
+      name: path.basename(filePath),
+      mime: type,
+      size: buffer.length,
+      dataUrl: `data:${type};base64,${buffer.toString("base64")}`
+    };
+  });
+});
+
+ipcMain.handle("emoji:open", () => {
+  return true;
+});
+

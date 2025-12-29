@@ -1,46 +1,49 @@
 import { useApp } from "../state/appStore";
 import MessageInput from "./MessageInput";
+import "../styles/chatView.css";
 
 export default function ChatView({ profile }) {
   const { currentChannel, messages } = useApp();
-
   const channelMessages = messages[currentChannel.id] || [];
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-      {/* Header */}
-      <div style={{ padding: "10px", borderBottom: "1px solid #1e1f22" }}>
-        # {currentChannel.id}
+    <div className="chat-view">
+
+      <div className="chat-header">
+        <span className="hash">#</span>
+        <span className="channel-name">{currentChannel.id}</span>
       </div>
 
-      {/* Messages */}
-      <div style={{ flex: 1, padding: "10px", overflowY: "auto" }}>
-        {channelMessages.map((msg, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "8px"
-            }}
-          >
-            <img
-              src={`pulse-avatar://${msg.avatar}`}
-              width={28}
-              height={28}
-              style={{
-                borderRadius: "50%",
-                marginRight: "8px",
-                background: "#444"
-              }}
-            />
-            <b style={{ marginRight: "6px" }}>{msg.name}</b>
-            <span>{msg.text}</span>
-          </div>
-        ))}
+      <div className="chat-messages">
+        {channelMessages.map((msg, i) => {
+          const prev = channelMessages[i - 1];
+          const showAvatar = !prev || prev.name !== msg.name;
+
+          return (
+            <div key={i} className="message-row">
+              {showAvatar ? (
+                <img
+                  src={`pulse-avatar://${msg.avatar}`}
+                  className="avatar"
+                />
+              ) : (
+                <div className="avatar-spacer" />
+              )}
+
+              <div className="message-content">
+                {showAvatar && (
+                  <div className="message-header">
+                    <span className="username">{msg.name}</span>
+                    <span className="timestamp">just now</span>
+                  </div>
+                )}
+                <div className="message-text">{msg.text}</div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Input */}
       <MessageInput profile={profile} />
     </div>
   );
