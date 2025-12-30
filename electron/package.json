@@ -3,25 +3,21 @@
   "version": "1.0.0",
   "description": "Pulse - lightweight voice and text chat",
   "main": "main.js",
-
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
-
   "author": "sugardaddy",
   "license": "ISC",
-
   "dependencies": {
-    "better-sqlite3": "^12.5.0"
+    "better-sqlite3": "^12.5.0",
+    "mime-types": "^3.0.2"
   },
-
   "devDependencies": {
     "electron": "^30.0.0",
     "electron-builder": "^26.0.12"
   },
-
   "build": {
     "appId": "com.pulse.app",
     "productName": "Pulse",
