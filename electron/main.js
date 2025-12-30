@@ -129,7 +129,7 @@ ipcMain.handle("files:open", async () => {
       name: path.basename(filePath),
       mime: type,
       size: buffer.length,
-      dataUrl: `data:${type};base64,${buffer.toString("base64")}`
+      dataUrl: `data:${type};base64,${buffer.toString("base64")}`  // aise hi krna hai na
     };
   });
 });
