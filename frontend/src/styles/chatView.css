@@ -204,6 +204,7 @@
 /* Make message area scrollable and reserve space for the input */
 .chat-messages {
   overflow: auto;              /* allow scrolling */
+  overflow-x: hidden;
   padding: 6px 0;
   padding-bottom: 72px;       /* ensure last messages are visible above the input; adjust if needed */
   scroll-behavior: smooth;
