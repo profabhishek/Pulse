@@ -47,15 +47,12 @@ export default function MessageInput({ profile }) {
 
   const handleAttachClick = async () => {
     try {
-      // If electron API available, use it
       if (window.electronAPI?.openFiles) {
         const files = await window.electronAPI.openFiles();
         if (!files || files.length === 0) return;
         setAttachments(prev => [...prev, ...files]);
         return;
       }
-
-      // Fallback: use a hidden input (works in browser dev / non-electron env)
       const input = document.createElement("input");
       input.type = "file";
       input.multiple = true;
@@ -87,7 +84,6 @@ export default function MessageInput({ profile }) {
   const handleEmojiClick = async () => {
     textareaRef.current?.focus();
 
-    // safety: agar electron API hi nahi hai
     if (!window.electronAPI?.openEmoji) {
       setShowEmojiPanel(s => !s);
       return;
@@ -96,7 +92,6 @@ export default function MessageInput({ profile }) {
     try {
       const result = await window.electronAPI.openEmoji();
 
-      // 👇 YAHI MAIN FIX HAI
       const nativeOpened = result?.native === true;
 
       if (!nativeOpened) {
@@ -121,7 +116,6 @@ export default function MessageInput({ profile }) {
     const newText = text.slice(0, start) + emoji + text.slice(end);
     setText(newText);
 
-    // set caret after inserted emoji
     requestAnimationFrame(() => {
       const caret = start + emoji.length;
       el.selectionStart = el.selectionEnd = caret;

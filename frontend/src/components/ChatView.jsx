@@ -1,7 +1,7 @@
 import { useApp } from "../state/appStore";
 import MessageInput from "./MessageInput";
 import "../styles/chatView.css";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 function Attachment({ file }) {
   const [objectUrl, setObjectUrl] = useState(null);
@@ -35,7 +35,6 @@ function Attachment({ file }) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-
   }, [file.dataUrl]);
 
   const containerStyle = {
@@ -106,10 +105,50 @@ function Attachment({ file }) {
   );
 }
 
-
 export default function ChatView({ profile }) {
   const { currentChannel, messages } = useApp();
   const channelMessages = messages?.[currentChannel?.id] || [];
+
+  const messagesRef = useRef(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
+  // scroll handler to determine whether user is at bottom
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 80; // 80px tolerance
+      setIsAtBottom(atBottom);
+      setShowScrollButton(!atBottom);
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    // run once to set initial state
+    onScroll();
+
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  // auto-scroll when new messages arrive only if we're already at the bottom
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+    if (isAtBottom) {
+      // smooth to bottom
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+    // if not at bottom, do not interrupt the user's reading
+  }, [channelMessages.length, isAtBottom]);
+
+  const scrollToBottom = () => {
+    const el = messagesRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  };
 
   return (
     <div className="chat-view">
@@ -118,7 +157,7 @@ export default function ChatView({ profile }) {
         <span className="channel-name">{currentChannel?.id}</span>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesRef} aria-live="polite">
         {channelMessages.map((msg, i) => {
           const prev = channelMessages[i - 1];
           const showAvatar = !prev || prev.name !== msg.name;
@@ -156,7 +195,16 @@ export default function ChatView({ profile }) {
         })}
       </div>
 
-      <MessageInput profile={profile} />
+      {/* Scroll-to-bottom button */}
+      {showScrollButton && (
+        <button className="scroll-to-bottom" onClick={scrollToBottom} aria-label="Jump to latest message">
+          ↓
+        </button>
+      )}
+
+      <div className="chat-input-wrapper">
+        <MessageInput profile={profile} />
+      </div>
     </div>
   );
 }
