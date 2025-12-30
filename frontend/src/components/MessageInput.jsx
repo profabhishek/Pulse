@@ -14,6 +14,7 @@ export default function MessageInput({ profile }) {
 
   useEffect(() => {
     if (!textareaRef.current) return;
+    // auto-resize textarea
     textareaRef.current.style.height = "0px";
     textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
   }, [text, attachments]);
@@ -44,30 +45,60 @@ export default function MessageInput({ profile }) {
     }
   };
 
-const handleAttachClick = async () => {
-  try {
-    if (!window.electronAPI) return;
+  const handleAttachClick = async () => {
+    try {
+      // If electron API available, use it
+      if (window.electronAPI?.openFiles) {
+        const files = await window.electronAPI.openFiles();
+        if (!files || files.length === 0) return;
+        setAttachments(prev => [...prev, ...files]);
+        return;
+      }
 
-    const files = await window.electronAPI.openFiles();
-
-    if (!files || files.length === 0) return;
-
-    setAttachments(prev => [...prev, ...files]);
-  } catch (err) {
-    console.error("Attach error:", err);
-  }
-};
+      // Fallback: use a hidden input (works in browser dev / non-electron env)
+      const input = document.createElement("input");
+      input.type = "file";
+      input.multiple = true;
+      input.onchange = async () => {
+        const chosen = Array.from(input.files || []);
+        const processed = await Promise.all(chosen.map(async (file) => {
+          const buffer = await file.arrayBuffer();
+          const b = new Uint8Array(buffer);
+          const base64 = btoa(String.fromCharCode(...b));
+          return {
+            name: file.name,
+            mime: file.type || "application/octet-stream",
+            size: file.size,
+            dataUrl: `data:${file.type || "application/octet-stream"};base64,${base64}`
+          };
+        }));
+        setAttachments(prev => [...prev, ...processed]);
+      };
+      input.click();
+    } catch (err) {
+      console.error("Attach error:", err);
+    }
+  };
 
   const removeAttachment = (idx) => {
     setAttachments(a => a.filter((_, i) => i !== idx));
   };
 
   const handleEmojiClick = async () => {
-
     textareaRef.current?.focus();
 
+    // safety: agar electron API hi nahi hai
+    if (!window.electronAPI?.openEmoji) {
+      setShowEmojiPanel(s => !s);
+      return;
+    }
+
     try {
-      const nativeOpened = await window.electronAPI.openEmoji();
+      const result = await window.electronAPI.openEmoji();
+
+      // 👇 YAHI MAIN FIX HAI
+      const nativeOpened = result?.native === true;
+
       if (!nativeOpened) {
         setShowEmojiPanel(s => !s);
       }
@@ -77,6 +108,7 @@ const handleAttachClick = async () => {
     }
   };
 
+
   const insertEmoji = (emoji) => {
     const el = textareaRef.current;
     if (!el) {
@@ -84,13 +116,15 @@ const handleAttachClick = async () => {
       return;
     }
 
-    const start = el.selectionStart || 0;
-    const end = el.selectionEnd || 0;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
     const newText = text.slice(0, start) + emoji + text.slice(end);
     setText(newText);
 
+    // set caret after inserted emoji
     requestAnimationFrame(() => {
-      el.selectionStart = el.selectionEnd = start + emoji.length;
+      const caret = start + emoji.length;
+      el.selectionStart = el.selectionEnd = caret;
       el.focus();
     });
   };
@@ -143,7 +177,7 @@ const handleAttachClick = async () => {
                 <img src={f.dataUrl} alt={f.name} style={{ width: "100%", height: 64, objectFit: "cover", borderRadius: 6 }} />
               )}
               {f.mime?.startsWith("video/") && (
-                <video src={f.dataUrl} style={{ width: "100%", height: 64, objectFit: "cover" }} />
+                <video src={f.dataUrl} style={{ width: "100%", height: 64, objectFit: "cover" }} controls />
               )}
               {f.mime === "application/pdf" && (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 64 }}>

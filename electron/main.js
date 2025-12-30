@@ -135,6 +135,12 @@ ipcMain.handle("files:open", async () => {
 });
 
 ipcMain.handle("emoji:open", () => {
-  return true;
+  const win = BrowserWindow.getFocusedWindow();
+  if (win?.webContents?.showEmojiPanel) {
+    win.webContents.showEmojiPanel();
+    return { native: true };
+  }
+  return { native: false };
 });
+
 
