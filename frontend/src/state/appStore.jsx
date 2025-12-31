@@ -2,8 +2,10 @@ import {
   createContext,
   useContext,
   useState,
-  useEffect
+  useEffect,
+  useRef
 } from "react";
+
 
 import {
   connectMQTT
@@ -18,14 +20,19 @@ const AppContext = createContext(null);
  * Provider
  */
 export function AppProvider({ children }) {
-  // -----------------------------
-  // Current channel (text / voice)
-  // -----------------------------
+
+  const [channels] = useState([
+    { id: "general", name: "general", type: "TEXT" },
+    { id: "random", name: "random", type: "TEXT" },
+    { id: "gaming", name: "Gaming", type: "VOICE" } // 👈 VOICE channel
+  ]);
+
   const [currentChannel, setCurrentChannel] = useState({
     id: "general",
     type: "TEXT"
   });
 
+  const currentChannelRef = useRef(currentChannel.id);
   // -----------------------------
   // Messages per channel
   // -----------------------------
@@ -39,8 +46,10 @@ export function AppProvider({ children }) {
   // -----------------------------
   const [unread, setUnread] = useState({
     general: 0,
-    random: 0
+    random: 0,
+    gaming: 0
   });
+
 
   // -----------------------------
   // Voice state (future use)
@@ -51,32 +60,34 @@ export function AppProvider({ children }) {
     users: []
   });
 
+  useEffect(() => {
+    currentChannelRef.current = currentChannel.id;
+  }, [currentChannel.id]);
+
+
   // -----------------------------
   // Connect to MQTT ONCE
   // -----------------------------
   useEffect(() => {
     connectMQTT((topic, message) => {
-      // topic: pulse/dev/text/general
       const channelId = topic.split("/").pop();
 
-      // append message
       setMessages(prev => ({
         ...prev,
         [channelId]: [...(prev[channelId] || []), message]
       }));
 
-      // 🔥 increment unread if not active
       setUnread(prev => {
-        if (channelId === currentChannel.id) return prev;
+        if (channelId === currentChannelRef.current) return prev;
 
-        const current = prev[channelId] || 0;
         return {
           ...prev,
-          [channelId]: Math.min(current + 1, 10)
+          [channelId]: Math.min((prev[channelId] || 0) + 1, 99)
         };
       });
     });
-  }, [currentChannel.id]);
+  }, []);
+
 
   // -----------------------------
   // Clear unread when channel opens
@@ -96,6 +107,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider
       value={{
+        channels,
         currentChannel,
         setCurrentChannel,
         messages,

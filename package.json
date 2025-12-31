@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "classnames": "^2.5.1",
+    "simple-peer": "^9.11.1"
+  }
+}
