@@ -1,7 +1,6 @@
-// src/components/VoiceView.jsx
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import SimplePeer from "simple-peer";
-import { publish, getClientId } from "../services/mqttService"; // must exist
+import { publish, getClientId } from "../services/mqttService"; 
 import mic from "../assets/mic.svg";
 import micOff from "../assets/mic-off.svg";
 import deafen from "../assets/deafen.svg";
@@ -17,7 +16,7 @@ export default function VoiceView({
   onDeafen = () => {},
   onLeave = () => {}
 }) {
-  // stable client id: prefer mqttService.getClientId(), fallback to localStorage
+
   const clientId = useMemo(() => {
     const svcId = getClientId && getClientId();
     if (svcId) return svcId;
@@ -29,20 +28,19 @@ export default function VoiceView({
     return generated;
   }, []);
 
-  const [profile, setProfile] = useState(null); // { user_id, name, avatar_path, ... }
-  const [participants, setParticipants] = useState([]); // [{ id, name, avatar }]
+  const [profile, setProfile] = useState(null); 
+  const [participants, setParticipants] = useState([]); 
   const [muted, setMuted] = useState(false);
   const [deafened, setDeafened] = useState(false);
   const [speakers, setSpeakers] = useState(new Set());
-
+  const [volumeLevels, setVolumeLevels] = useState({});
   const localStreamRef = useRef(null);
-  const peersRef = useRef({}); // map targetId -> { peer, audioEl, cleanup }
+  const peersRef = useRef({}); 
   const audioContainerRef = useRef(null);
 
   const presenceTopic = `${BASE_TOPIC}/voice/presence/${channelId}`;
   const signalingTopicFor = (targetId) => `${BASE_TOPIC}/voice/signaling/${channelId}/${targetId}`;
 
-  // ---- load profile once ----
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -234,19 +232,19 @@ export default function VoiceView({
         let sum = 0;
         for (let i = 0; i < data.length; i++) sum += data[i];
         const avg = sum / data.length;
-        if (avg > 18) {
-          setSpeakers(prev => {
-            const s = new Set(prev);
-            s.add(targetId);
-            return s;
-          });
-        } else {
-          setSpeakers(prev => {
-            const s = new Set(prev);
-            s.delete(targetId);
-            return s;
-          });
-        }
+        const level = Math.min(avg / 80, 1);
+
+        setVolumeLevels(prev => ({
+          ...prev,
+          [targetId]: level
+        }));
+
+        setSpeakers(prev => {
+          const s = new Set(prev);
+          avg > 18 ? s.add(targetId) : s.delete(targetId);
+          return s;
+        });
+
         raf = requestAnimationFrame(tick);
       };
 
@@ -279,19 +277,18 @@ export default function VoiceView({
         let sum = 0;
         for (let i = 0; i < data.length; i++) sum += data[i];
         const avg = sum / data.length;
-        if (avg > 18) {
-          setSpeakers(prev => {
-            const s = new Set(prev);
-            s.add(clientId);
-            return s;
-          });
-        } else {
-          setSpeakers(prev => {
-            const s = new Set(prev);
-            s.delete(clientId);
-            return s;
-          });
-        }
+        const level = Math.min(avg / 80, 1);
+
+        setVolumeLevels(prev => ({
+          ...prev,
+          [clientId]: level
+        }));
+
+        setSpeakers(prev => {
+          const s = new Set(prev);
+          avg > 18 ? s.add(clientId) : s.delete(clientId);
+          return s;
+        });
         raf = requestAnimationFrame(tick);
       };
       tick();
@@ -354,6 +351,11 @@ export default function VoiceView({
     onLeave();
   }
 
+  const ringStyle = (id) => ({
+    transform: `scale(${1 + (volumeLevels[id] || 0) * 0.25})`
+  });
+
+
   const avatarUrl = profile?.avatar_path ? `pulse-avatar://${profile.avatar_path}` : null;
   const isSpeaking = (id) => speakers.has(id);
 
@@ -374,7 +376,7 @@ export default function VoiceView({
             aria-live="polite"
           >
             <div className="user-top">
-              <div className={`avatar-ring ${isSpeaking(clientId) ? "pulse" : ""}`}>
+              <div className={`avatar-ring ${isSpeaking(clientId) ? "pulse" : ""}`} style={ringStyle(clientId)}>
                 <div className="avatar">
                   {avatarUrl ? (
                     <img
@@ -408,7 +410,7 @@ export default function VoiceView({
           {participants.map(p => (
             <article key={p.id} className={`user-card ${isSpeaking(p.id) ? "speaking" : ""}`} aria-live="polite">
               <div className="user-top">
-                <div className={`avatar-ring ${isSpeaking(p.id) ? "pulse" : ""}`}>
+                <div className={`avatar-ring ${isSpeaking(p.id) ? "pulse" : ""}`} style={ringStyle(p.id)}>
                   <div className="avatar">
                     {p.avatar ? (
                       <img src={`pulse-avatar://${p.avatar}`} alt={p.name} className="avatar-img" onError={(e) => { e.currentTarget.style.display = "none"; }} />

@@ -139,6 +139,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.08s linear;
 }
 .avatar {
   width: 100px !important;
