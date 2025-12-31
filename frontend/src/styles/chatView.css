@@ -99,8 +99,8 @@
 
 .avatar,
 .avatar-spacer {
-  width: 42px;
-  height: 42px;
+  width: 40px !important;
+  height: 40px !important;
   flex-shrink: 0;
 }
 
@@ -125,6 +125,7 @@
   );
   opacity: 0.35;
   pointer-events: none;
+  display: none;
 }
 
 .avatar-spacer {
