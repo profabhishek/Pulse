@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from "react";
+// src/components/ChannelSidebar.jsx
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import TextChannelIcon from "./icons/TextChannelIcon";
 import SpeakerIcon from "./icons/SpeakerIcon";
@@ -7,27 +8,66 @@ import { useApp } from "../state/appStore";
 import "../styles/ChannelSidebar.css";
 
 export default function ChannelSidebar() {
-const { currentChannel, setCurrentChannel, unread, channels } = useApp();
-
+  const { currentChannel, setCurrentChannel, unread, channels = [] } = useApp();
 
   const [query, setQuery] = useState("");
   const [liveCounts, setLiveCounts] = useState(unread || {});
-  const mountedRef = useRef(true);
+  const mountedRef = useRef(false);
+  const currentChannelRef = useRef(currentChannel);
+  const channelTypeMapRef = useRef({});
+  const lastOpenedChannelRef = useRef(null);
+  const lastOpenedClearTimerRef = useRef(null);
 
   useEffect(() => {
     mountedRef.current = true;
-    setLiveCounts((prev) => ({ ...prev, ...(unread || {}) }));
     return () => {
       mountedRef.current = false;
+      if (lastOpenedClearTimerRef.current) {
+        clearTimeout(lastOpenedClearTimerRef.current);
+        lastOpenedClearTimerRef.current = null;
+      }
     };
+  }, []);
+
+  useEffect(() => {
+    currentChannelRef.current = currentChannel;
+  }, [currentChannel]);
+
+  useEffect(() => {
+    const map = {};
+    channels.forEach((c) => {
+      if (c && c.id) map[c.id] = c.type;
+    });
+    channelTypeMapRef.current = map;
+  }, [channels]);
+
+  useEffect(() => {
+    setLiveCounts((prev) => ({ ...prev, ...(unread || {}) }));
   }, [unread]);
 
-  // Listen for new message events if preload exposes them (optional)
+  useEffect(() => {
+    if (!currentChannel?.id) return;
+    setLiveCounts((prev) => ({ ...prev, [currentChannel.id]: 0 }));
+  }, [currentChannel]);
+
   useEffect(() => {
     const onNew = (payload) => {
       if (!mountedRef.current) return;
-      const { channelId, total, delta = 1 } = payload || {};
+      const { channelId, total, delta = 1, type } = payload || {};
       if (!channelId) return;
+
+      // if payload explicitly identifies non-message events, ignore them
+      if (type && type !== "message") return;
+
+      // ignore voice channels entirely
+      if (channelTypeMapRef.current[channelId] === "VOICE") return;
+
+      // ignore events for the currently active channel
+      if (currentChannelRef.current?.id === channelId) return;
+
+      // ignore events for channel the user just opened (race protection)
+      if (lastOpenedChannelRef.current === channelId) return;
+
       setLiveCounts((prev) => {
         const existing = typeof prev[channelId] === "number" ? prev[channelId] : 0;
         const next = typeof total === "number" ? total : Math.max(0, existing + delta);
@@ -37,14 +77,17 @@ const { currentChannel, setCurrentChannel, unread, channels } = useApp();
 
     if (window.messageBus && window.messageBus.onNewMessage) {
       window.messageBus.onNewMessage(onNew);
-    } else if (window.electronAPI && window.electronAPI.onNewMessage) {
-      // optional electronAPI hook
+    }
+    if (window.electronAPI && window.electronAPI.onNewMessage) {
       window.electronAPI.onNewMessage(onNew);
     }
 
     return () => {
       if (window.messageBus && window.messageBus.offNewMessage) {
         window.messageBus.offNewMessage(onNew);
+      }
+      if (window.electronAPI && window.electronAPI.offNewMessage) {
+        window.electronAPI.offNewMessage(onNew);
       }
     };
   }, []);
@@ -71,8 +114,24 @@ const { currentChannel, setCurrentChannel, unread, channels } = useApp();
   };
 
   const visibleChannels = channels.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase())
+    (c.name || "").toLowerCase().includes(query.toLowerCase())
   );
+
+  function openChannel(ch) {
+    // mark channel as just-opened (race protection)
+    lastOpenedChannelRef.current = ch.id;
+    if (lastOpenedClearTimerRef.current) clearTimeout(lastOpenedClearTimerRef.current);
+    lastOpenedClearTimerRef.current = setTimeout(() => {
+      lastOpenedChannelRef.current = null;
+      lastOpenedClearTimerRef.current = null;
+    }, 800);
+
+    // clear unread immediately for UI
+    setLiveCounts((prev) => ({ ...prev, [ch.id]: 0 }));
+
+    // then switch channel
+    setCurrentChannel({ id: ch.id, type: ch.type });
+  }
 
   return (
     <aside className="cs-root" aria-label="Channel sidebar">
@@ -96,9 +155,7 @@ const { currentChannel, setCurrentChannel, unread, channels } = useApp();
             className="cs-icon-btn"
             title="Collapse/expand"
             aria-pressed="false"
-            onClick={() => {
-              /* optional collapse logic */
-            }}
+            onClick={() => {}}
           >
             <svg className="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M6 9l6 6 6-6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -133,7 +190,7 @@ const { currentChannel, setCurrentChannel, unread, channels } = useApp();
                   <motion.button
                     key={ch.id}
                     className={`cs-item ${active ? "is-active" : ""}`}
-                    onClick={() => setCurrentChannel({ id: ch.id, type: ch.type })}
+                    onClick={() => openChannel(ch)}
                     whileHover={{ x: 6 }}
                     aria-current={active ? "true" : "false"}
                   >
@@ -168,7 +225,7 @@ const { currentChannel, setCurrentChannel, unread, channels } = useApp();
                   <motion.button
                     key={ch.id}
                     className={`cs-item ${active ? "is-active" : ""}`}
-                    onClick={() => setCurrentChannel({ id: ch.id, type: ch.type })}
+                    onClick={() => openChannel(ch)}
                     whileHover={{ x: 6 }}
                     aria-current={active ? "true" : "false"}
                   >

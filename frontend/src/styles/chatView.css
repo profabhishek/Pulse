@@ -97,14 +97,14 @@
   margin-top: 2px;
 }
 
-.avatar,
-.avatar-spacer {
+.avatar-profile,
+.avatar-profile-spacer {
   width: 40px !important;
   height: 40px !important;
   flex-shrink: 0;
 }
 
-.avatar {
+.avatar-profile {
   border-radius: 50%;
   background: #444;
   position: relative;
@@ -113,7 +113,7 @@
     0 0 14px rgba(88, 101, 242, 0.35);
 }
 
-.avatar::after {
+.avatar-profile::after {
   content: "";
   position: absolute;
   inset: -2px;
@@ -128,7 +128,7 @@
   display: none;
 }
 
-.avatar-spacer {
+.avatar-profile-spacer {
   visibility: hidden;
 }
 

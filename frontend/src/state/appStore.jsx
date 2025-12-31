@@ -3,28 +3,19 @@ import {
   useContext,
   useState,
   useEffect,
-  useRef
+  useRef,
+  useMemo
 } from "react";
 
+import { connectMQTT } from "../services/mqttService";
 
-import {
-  connectMQTT
-} from "../services/mqttService";
-
-/**
- * Global App Context
- */
 const AppContext = createContext(null);
 
-/**
- * Provider
- */
 export function AppProvider({ children }) {
-
   const [channels] = useState([
     { id: "general", name: "general", type: "TEXT" },
     { id: "random", name: "random", type: "TEXT" },
-    { id: "gaming", name: "Gaming", type: "VOICE" } // 👈 VOICE channel
+    { id: "gaming", name: "Gaming", type: "VOICE" }
   ]);
 
   const [currentChannel, setCurrentChannel] = useState({
@@ -33,27 +24,18 @@ export function AppProvider({ children }) {
   });
 
   const currentChannelRef = useRef(currentChannel.id);
-  // -----------------------------
-  // Messages per channel
-  // -----------------------------
+
   const [messages, setMessages] = useState({
     general: [],
     random: []
   });
 
-  // -----------------------------
-  // 🔥 Unread counts per channel
-  // -----------------------------
   const [unread, setUnread] = useState({
     general: 0,
     random: 0,
     gaming: 0
   });
 
-
-  // -----------------------------
-  // Voice state (future use)
-  // -----------------------------
   const [voice, setVoice] = useState({
     connected: false,
     channel: null,
@@ -64,46 +46,72 @@ export function AppProvider({ children }) {
     currentChannelRef.current = currentChannel.id;
   }, [currentChannel.id]);
 
-
-  // -----------------------------
-  // Connect to MQTT ONCE
-  // -----------------------------
-  useEffect(() => {
-    connectMQTT((topic, message) => {
-      const channelId = topic.split("/").pop();
-
-      setMessages(prev => ({
-        ...prev,
-        [channelId]: [...(prev[channelId] || []), message]
-      }));
-
-      setUnread(prev => {
-        if (channelId === currentChannelRef.current) return prev;
-
-        return {
-          ...prev,
-          [channelId]: Math.min((prev[channelId] || 0) + 1, 99)
-        };
-      });
+  const channelTypeMap = useMemo(() => {
+    const m = {};
+    channels.forEach((c) => {
+      if (c && c.id) m[c.id] = c.type;
     });
+    return m;
+  }, [channels]);
+
+  useEffect(() => {
+    setMessages((prev) => ({ ...prev, ...(messages || {}) }));
+
   }, []);
 
+  useEffect(() => {
+    const unsub = connectMQTT((topic, rawMessage) => {
+      const channelId = String(topic || "").split("/").pop();
+      if (!channelId) return;
 
-  // -----------------------------
-  // Clear unread when channel opens
-  // -----------------------------
+      let msg = rawMessage;
+      if (typeof rawMessage === "string") {
+        try {
+          msg = JSON.parse(rawMessage);
+        } catch (e) {
+
+          msg = rawMessage;
+        }
+      }
+
+      if (msg && typeof msg === "object" && "type" in msg && msg.type !== "message") {
+        return;
+      }
+
+      if (channelTypeMap[channelId] && channelTypeMap[channelId] !== "TEXT") {
+        return;
+      }
+
+      setMessages((prev) => ({
+        ...prev,
+        [channelId]: [...(prev[channelId] || []), msg]
+      }));
+
+      if (channelId === currentChannelRef.current) return;
+
+      setUnread((prev) => ({
+        ...prev,
+        [channelId]: Math.min((prev[channelId] || 0) + 1, 99)
+      }));
+    });
+
+    return () => {
+      if (typeof unsub === "function") {
+        try { unsub(); } catch (e) {}
+      }
+    };
+
+  }, [channelTypeMap]);
+
   useEffect(() => {
     if (currentChannel.type === "TEXT") {
-      setUnread(prev => ({
+      setUnread((prev) => ({
         ...prev,
         [currentChannel.id]: 0
       }));
     }
   }, [currentChannel.id, currentChannel.type]);
 
-  // -----------------------------
-  // Provide state
-  // -----------------------------
   return (
     <AppContext.Provider
       value={{
@@ -121,9 +129,6 @@ export function AppProvider({ children }) {
   );
 }
 
-/**
- * Hook to use app state
- */
 export function useApp() {
   const context = useContext(AppContext);
   if (!context) {

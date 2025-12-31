@@ -165,9 +165,9 @@ export default function ChatView({ profile }) {
           return (
             <div key={i} className="message-row">
               {showAvatar ? (
-                <img src={`pulse-avatar://${msg.avatar}`} className="avatar" />
+                <img src={`pulse-avatar://${msg.avatar}`} className="avatar-profile" />
               ) : (
-                <div className="avatar-spacer" />
+                <div className="avatar-profile-spacer" />
               )}
 
               <div className="message-content">
