@@ -1,9 +1,9 @@
-import { useApp } from "../state/appStore";
+import React, { useEffect, useState, useRef } from "react";
 import MessageInput from "./MessageInput";
+import { useApp } from "../state/appStore";
 import "../styles/chatView.css";
-import { useEffect, useState, useRef } from "react";
 
-function Attachment({ file }) {
+function Attachment({ file, onOpen }) {
   const [objectUrl, setObjectUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(Boolean(file.dataUrl));
 
@@ -37,32 +37,39 @@ function Attachment({ file }) {
     };
   }, [file.dataUrl]);
 
+  const src = objectUrl || file.dataUrl;
+  const downloadHref = src;
+
   const containerStyle = {
     width: 320,
     maxWidth: "100%",
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: "hidden",
-    background: "rgba(255,255,255,0.02)",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))",
     border: "1px solid rgba(255,255,255,0.04)",
     padding: 8,
-    marginTop: 8
+    marginTop: 8,
+    boxShadow: "0 8px 30px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02)"
   };
 
   if (file.mime?.startsWith("image/")) {
     return (
-      <div style={containerStyle}>
+      <div style={containerStyle} className="attachment-card">
         {isLoading ? (
-          <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>Loading…</div>
+          <div className="attachment-loading" style={{ height: 180 }}>Loading…</div>
         ) : (
           <img
-            src={objectUrl || file.dataUrl}
+            src={src}
             alt={file.name}
             loading="lazy"
-            style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 8, display: "block" }}
+            style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 10, display: "block", cursor: "zoom-in" }}
+            onClick={() => onOpen({ type: "image", src, name: file.name })}
           />
         )}
-        <div style={{ marginTop: 8, fontSize: 12, color: "#b5bac1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {file.name}
+        <div className="attachment-meta">
+          <div className="attachment-actions">
+            <a className="attachment-download" href={downloadHref} download={file.name}>Download</a>
+          </div>
         </div>
       </div>
     );
@@ -70,36 +77,78 @@ function Attachment({ file }) {
 
   if (file.mime?.startsWith("video/")) {
     return (
-      <div style={containerStyle}>
+      <div style={containerStyle} className="attachment-card">
         {isLoading ? (
-          <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>Loading…</div>
+          <div className="attachment-loading" style={{ height: 180 }}>Loading…</div>
         ) : (
-          <video
-            src={objectUrl || file.dataUrl}
-            controls
-            preload="metadata"
-            style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 8, display: "block" }}
-          />
+          <div style={{ position: "relative", width: "100%", height: 180, borderRadius: 10, overflow: "hidden", cursor: "pointer" }}>
+            <video
+              src={src}
+              preload="metadata"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+            <button
+              className="attachment-play-overlay"
+              onClick={() => onOpen({ type: "video", src, name: file.name })}
+              aria-label="Open video"
+            >
+              ▶
+            </button>
+          </div>
         )}
-        <div style={{ marginTop: 8, fontSize: 12, color: "#b5bac1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {file.name}
+        <div className="attachment-meta">
+          <div className="attachment-actions">
+            <a className="attachment-download" href={downloadHref} download={file.name}>Download</a>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={Object.assign({ display: "flex", gap: 10, alignItems: "center" }, containerStyle)}>
+    <div style={{ display: "flex", gap: 10, alignItems: "center", ...containerStyle }} className="attachment-card">
       <div style={{ fontSize: 28 }}>📄</div>
       <div style={{ flex: 1 }}>
-        <div style={{ color: "#f2f3f5", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
-        <a
-          href={objectUrl || file.dataUrl}
-          download={file.name}
-          style={{ fontSize: 12, color: "#b5bac1", textDecoration: "underline", marginTop: 6, display: "inline-block" }}
-        >
-          Download
-        </a>
+        <div style={{ color: "var(--text-primary)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
+        <a className="attachment-download" href={objectUrl || file.dataUrl} download={file.name}>Download</a>
+      </div>
+    </div>
+  );
+}
+
+function MediaModal({ open, item, onClose }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open || !item) return null;
+
+  const { type, src, name } = item;
+
+  return (
+    <div className="media-modal" role="dialog" aria-modal="true" aria-label={name || "media viewer"}>
+      <div className="media-modal-backdrop" onClick={onClose} />
+      <div className="media-modal-body">
+        <button className="media-modal-close" onClick={onClose} aria-label="Close">✕</button>
+
+        <div className="media-modal-content">
+          {type === "image" ? (
+            <img src={src} alt={name} className="media-modal-image" />
+          ) : (
+            <video src={src} controls className="media-modal-video" />
+          )}
+        </div>
+
+        <div className="media-modal-footer">
+          <div className="media-modal-name">{name}</div>
+          <div className="media-modal-actions">
+            <a className="btn btn-download" href={src} download={name}>Download</a>
+            <a className="btn btn-open" href={src} target="_blank" rel="noopener noreferrer">Open in new tab</a>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -113,35 +162,29 @@ export default function ChatView({ profile }) {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
-  // scroll handler to determine whether user is at bottom
+  const [modalItem, setModalItem] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
 
     const onScroll = () => {
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 80; // 80px tolerance
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 80;
       setIsAtBottom(atBottom);
       setShowScrollButton(!atBottom);
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
-    // run once to set initial state
     onScroll();
 
-    return () => {
-      el.removeEventListener("scroll", onScroll);
-    };
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // auto-scroll when new messages arrive only if we're already at the bottom
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
-    if (isAtBottom) {
-      // smooth to bottom
-      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    }
-    // if not at bottom, do not interrupt the user's reading
+    if (isAtBottom) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [channelMessages.length, isAtBottom]);
 
   const scrollToBottom = () => {
@@ -150,24 +193,97 @@ export default function ChatView({ profile }) {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   };
 
+  const openMedia = (item) => {
+    setModalItem(item);
+    setModalOpen(true);
+  };
+  const closeMedia = () => {
+    setModalOpen(false);
+    setTimeout(() => setModalItem(null), 240);
+  };
+
+const safeOpenExternal = (url) => {
+
+  if (window?.electronAPI?.openExternal) {
+    try {
+      window.electronAPI.openExternal(url);
+      return;
+    } catch (e) {
+      console.error("openExternal failed:", e);
+    }
+  }
+  if (typeof window !== "undefined" && window.open) {
+    window.open(url, "_blank");
+  }
+};
+
+
+  const linkifyText = (text) => {
+    if (!text) return text;
+    const urlRe = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRe);
+    return parts.map((part, idx) => {
+      if (part.startsWith("http://") || part.startsWith("https://")) {
+        return (
+          <a
+            key={`link-${idx}`}
+            href={part}
+            className="message-link"
+            onClick={(e) => {
+              e.preventDefault();
+
+              if (window?.electronAPI?.openExternal) {
+                window.electronAPI.openExternal(part);
+              }
+            }}
+          >
+            {part}
+          </a>
+        );
+      }
+      return <span key={`txt-${idx}`}>{part}</span>;
+    });
+  };
+
+  const makeMessageKey = (msg, i) => {
+    if (msg?.id) return msg.id;
+    const name = msg?.name ?? "u";
+    const ts = msg?.timestamp ?? msg?.time ?? msg?.createdAt ?? `i${i}`;
+    const textSlice = String(msg?.text ?? "").slice(0, 30).replace(/\s+/g, "_");
+    return `${name}-${ts}-${textSlice}-${i}`;
+  };
+
   return (
     <div className="chat-view">
       <div className="chat-header">
-        <span className="hash">#</span>
-        <span className="channel-name">{currentChannel?.id}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span className="hash">#</span>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <span className="channel-name">{currentChannel?.id}</span>
+            <span className="channel-sub tiny">Text channel • {channelMessages.length} messages</span>
+          </div>
+        </div>
       </div>
 
       <div className="chat-messages" ref={messagesRef} aria-live="polite">
         {channelMessages.map((msg, i) => {
           const prev = channelMessages[i - 1];
           const showAvatar = !prev || prev.name !== msg.name;
+          const rowKey = makeMessageKey(msg, i);
 
           return (
-            <div key={i} className="message-row">
+            <div key={rowKey} className="message-row">
               {showAvatar ? (
-                <img src={`pulse-avatar://${msg.avatar}`} className="avatar" />
+                <img
+                  src={msg.avatar ? `pulse-avatar://${msg.avatar}` : undefined}
+                  className="avatar-profile"
+                  alt={msg.name || "avatar"}
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = "hidden";
+                  }}
+                />
               ) : (
-                <div className="avatar-spacer" />
+                <div className="avatar-profile-spacer" />
               )}
 
               <div className="message-content">
@@ -179,23 +295,43 @@ export default function ChatView({ profile }) {
                 )}
 
                 <div className="message-text">
-                  <div style={{ color: "var(--text-primary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                    {msg.text || ""}
+                  <div
+                    style={{
+                      color: "var(--text-primary)",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word"
+                    }}
+                  >
+                    {linkifyText(msg.text || "")}
                   </div>
+
                   {Array.isArray(msg.files) && msg.files.length > 0 && (
-                    <div className="attachments" style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
-                      {msg.files.map((file, idx) => <Attachment key={idx} file={file} />)}
+                    <div
+                      className="attachments"
+                      style={{
+                        display: "flex",
+                        gap: 12,
+                        flexWrap: "wrap",
+                        marginTop: 12
+                      }}
+                    >
+                      {msg.files.map((file, idx) => (
+                        <Attachment
+                          key={`${file.name}-${file.size || idx}`}
+                          file={file}
+                          onOpen={openMedia}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
-
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Scroll-to-bottom button */}
+
       {showScrollButton && (
         <button className="scroll-to-bottom" onClick={scrollToBottom} aria-label="Jump to latest message">
           ↓
@@ -205,6 +341,8 @@ export default function ChatView({ profile }) {
       <div className="chat-input-wrapper">
         <MessageInput profile={profile} />
       </div>
+
+      <MediaModal open={modalOpen} item={modalItem} onClose={closeMedia} />
     </div>
   );
 }

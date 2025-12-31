@@ -2,100 +2,120 @@ import {
   createContext,
   useContext,
   useState,
-  useEffect
+  useEffect,
+  useRef,
+  useMemo
 } from "react";
 
-import {
-  connectMQTT
-} from "../services/mqttService";
+import { connectMQTT } from "../services/mqttService";
 
-/**
- * Global App Context
- */
 const AppContext = createContext(null);
 
-/**
- * Provider
- */
 export function AppProvider({ children }) {
-  // -----------------------------
-  // Current channel (text / voice)
-  // -----------------------------
+  const [channels] = useState([
+    { id: "general", name: "general", type: "TEXT" },
+    { id: "random", name: "random", type: "TEXT" },
+    { id: "gaming", name: "Gaming", type: "VOICE" }
+  ]);
+
   const [currentChannel, setCurrentChannel] = useState({
     id: "general",
     type: "TEXT"
   });
 
-  // -----------------------------
-  // Messages per channel
-  // -----------------------------
+  const currentChannelRef = useRef(currentChannel.id);
+
   const [messages, setMessages] = useState({
     general: [],
     random: []
   });
 
-  // -----------------------------
-  // 🔥 Unread counts per channel
-  // -----------------------------
   const [unread, setUnread] = useState({
     general: 0,
-    random: 0
+    random: 0,
+    gaming: 0
   });
 
-  // -----------------------------
-  // Voice state (future use)
-  // -----------------------------
   const [voice, setVoice] = useState({
     connected: false,
     channel: null,
     users: []
   });
 
-  // -----------------------------
-  // Connect to MQTT ONCE
-  // -----------------------------
   useEffect(() => {
-    connectMQTT((topic, message) => {
-      // topic: pulse/dev/text/general
-      const channelId = topic.split("/").pop();
-
-      // append message
-      setMessages(prev => ({
-        ...prev,
-        [channelId]: [...(prev[channelId] || []), message]
-      }));
-
-      // 🔥 increment unread if not active
-      setUnread(prev => {
-        if (channelId === currentChannel.id) return prev;
-
-        const current = prev[channelId] || 0;
-        return {
-          ...prev,
-          [channelId]: Math.min(current + 1, 10)
-        };
-      });
-    });
+    currentChannelRef.current = currentChannel.id;
   }, [currentChannel.id]);
 
-  // -----------------------------
-  // Clear unread when channel opens
-  // -----------------------------
+  const channelTypeMap = useMemo(() => {
+    const m = {};
+    channels.forEach((c) => {
+      if (c && c.id) m[c.id] = c.type;
+    });
+    return m;
+  }, [channels]);
+
+  useEffect(() => {
+    setMessages((prev) => ({ ...prev, ...(messages || {}) }));
+
+  }, []);
+
+  useEffect(() => {
+    const unsub = connectMQTT((topic, rawMessage) => {
+      const channelId = String(topic || "").split("/").pop();
+      if (!channelId) return;
+
+      let msg = rawMessage;
+      if (typeof rawMessage === "string") {
+        try {
+          msg = JSON.parse(rawMessage);
+        } catch (e) {
+
+          msg = rawMessage;
+        }
+      }
+
+      if (msg && typeof msg === "object" && "type" in msg && msg.type !== "message") {
+        return;
+      }
+
+      if (channelTypeMap[channelId] && channelTypeMap[channelId] !== "TEXT") {
+        return;
+      }
+
+      setMessages((prev) => ({
+        ...prev,
+        [channelId]: [...(prev[channelId] || []), msg]
+      }));
+
+      if (channelId === currentChannelRef.current) return;
+
+      setUnread((prev) => ({
+        ...prev,
+        [channelId]: Math.min((prev[channelId] || 0) + 1, 99)
+      }));
+    });
+
+    return () => {
+      if (typeof unsub === "function") {
+        try { unsub(); } catch (e) {}
+      }
+    };
+
+  }, [channelTypeMap]);
+
   useEffect(() => {
     if (currentChannel.type === "TEXT") {
-      setUnread(prev => ({
+      setUnread((prev) => ({
         ...prev,
         [currentChannel.id]: 0
       }));
     }
   }, [currentChannel.id, currentChannel.type]);
 
-  // -----------------------------
-  // Provide state
-  // -----------------------------
   return (
     <AppContext.Provider
       value={{
+        channels,
         currentChannel,
         setCurrentChannel,
         messages,
@@ -109,9 +129,6 @@ export function AppProvider({ children }) {
   );
 }
 
-/**
- * Hook to use app state
- */
 export function useApp() {
   const context = useContext(AppContext);
   if (!context) {
