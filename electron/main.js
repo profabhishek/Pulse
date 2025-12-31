@@ -23,11 +23,16 @@ function createWindow() {
     }
   });
 
-  // 🔥 REMOVE DEFAULT MENU
+  const { shell } = require("electron");
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+
   Menu.setApplicationMenu(null);
   mainWindow.setMenuBarVisibility(false);
 
-  // 🔥 FORCE DEVTOOLS (TEMPORARY – REMOVE LATER)
   mainWindow.webContents.openDevTools({ mode: "detach" });
 
   const isDev = !app.isPackaged;
