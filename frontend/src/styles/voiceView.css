@@ -231,7 +231,7 @@
   backdrop-filter: blur(18px);
 
   display:flex;
-  justify-content:space-between;
+  justify-content: center;
   align-items:center;
 
   box-shadow:
@@ -244,6 +244,7 @@
   display:flex;
   gap:14px;
   align-items:center;
+  margin-left: 20px;
 }
 
 .primary-control{
