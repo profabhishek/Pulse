@@ -62,17 +62,27 @@ function createWindow() {
 app.whenReady().then(() => {
   // 🔥 CUSTOM PROTOCOL FOR AVATARS
   protocol.registerFileProtocol("pulse-avatar", (request, callback) => {
-    const fileName = request.url
-      .replace("pulse-avatar://", "")
-      .replace(/\/+$/, "");
+    try {
+      const fileName = request.url
+        .replace("pulse-avatar://", "")
+        .replace(/\/+$/, "");
 
-    const avatarPath = path.join(
-      app.getPath("userData"),
-      "avatars",
-      fileName
-    );
+      const avatarPath = path.join(
+        app.getPath("userData"),
+        "avatars",
+        fileName
+      );
 
-    callback({ path: avatarPath });
+      if (!fs.existsSync(avatarPath)) {
+        // tell chromium the file is missing (prevents crash spam)
+        return callback({ error: -6 }); // FILE_NOT_FOUND
+      }
+
+      callback({ path: avatarPath });
+    } catch (err) {
+      console.error("pulse-avatar protocol error:", err);
+      callback({ error: -2 }); // FAILED
+    }
   });
 
   createWindow();
@@ -148,4 +158,34 @@ ipcMain.handle("emoji:open", () => {
   return { native: false };
 });
 
+ipcMain.handle("avatar:read", async (_event, avatarValue) => {
+  try {
+    if (!avatarValue) return null;
 
+    let filePath = null;
+
+    if (avatarValue.startsWith("pulse-avatar://")) {
+      const fileName = avatarValue
+        .replace("pulse-avatar://", "")
+        .replace(/\/+$/, "");
+
+      filePath = path.join(
+        app.getPath("userData"),
+        "avatars",
+        fileName
+      );
+    } else {
+      filePath = avatarValue;
+    }
+
+    if (!filePath || !fs.existsSync(filePath)) return null;
+
+    const buffer = fs.readFileSync(filePath);
+    const type = mime.lookup(filePath) || "application/octet-stream";
+
+    return `data:${type};base64,${buffer.toString("base64")}`;
+  } catch (err) {
+    console.error("avatar:read error:", err);
+    return null;
+  }
+});

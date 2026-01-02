@@ -61,47 +61,99 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     const unsub = connectMQTT((topic, rawMessage) => {
-      const channelId = String(topic || "").split("/").pop();
-      if (!channelId) return;
-
       let msg = rawMessage;
+
       if (typeof rawMessage === "string") {
         try {
           msg = JSON.parse(rawMessage);
-        } catch (e) {
-
-          msg = rawMessage;
+        } catch {
+          return;
         }
       }
 
-      if (msg && typeof msg === "object" && "type" in msg && msg.type !== "message") {
+      if (!msg || typeof msg !== "object" || !msg.type) return;
+
+      // =========================
+      // 1️⃣ PROFILE MESSAGE
+      // =========================
+      if (msg.type === "profile") {
+        // msg: { type, userId, name, avatarHash }
+
+        // Store latest avatar hash in memory (or DB via IPC later)
+        window.__profileCache ??= {};
+        const cached = window.__profileCache[msg.userId];
+
+        if (!cached || cached.avatarHash !== msg.avatarHash) {
+          window.__profileCache[msg.userId] = {
+            name: msg.name,
+            avatarHash: msg.avatarHash
+          };
+
+          // request avatar ONLY if hash changed
+          publish(`${BASE_TOPIC}/avatar/request`, {
+            type: "avatar:request",
+            userId: msg.userId
+          });
+        }
         return;
       }
 
-      if (channelTypeMap[channelId] && channelTypeMap[channelId] !== "TEXT") {
+      if (msg.type === "avatar:request") {
+        if (msg.userId !== window.__selfUserId) return;
+
+        window.electronAPI?.sendAvatar?.().then((res) => {
+        if (!res) return;
+
+        publish(`${BASE_TOPIC}/avatar/response`, {
+          type: "avatar:response",
+          userId: window.__selfUserId,
+          avatarHash: res.avatarHash,
+          avatarBase64: res.avatarBase64
+        });
+      });
+      return;
+
+      }
+
+      if (msg.type === "avatar:response") {
+        // msg: { userId, avatarHash, avatarBase64 }
+
+        window.electronAPI?.saveAvatar?.(
+          msg.userId,
+          msg.avatarHash,
+          msg.avatarBase64
+        );
         return;
       }
 
-      setMessages((prev) => ({
-        ...prev,
-        [channelId]: [...(prev[channelId] || []), msg]
-      }));
+      // =========================
+      // 4️⃣ NORMAL CHAT MESSAGE
+      // =========================
+      if (msg.type === "message") {
+        const channelId = String(topic || "").split("/").pop();
+        if (!channelId) return;
 
-      if (channelId === currentChannelRef.current) return;
+        if (!msg.timestamp) msg.timestamp = Date.now();
 
-      setUnread((prev) => ({
-        ...prev,
-        [channelId]: Math.min((prev[channelId] || 0) + 1, 99)
-      }));
+        setMessages((prev) => ({
+          ...prev,
+          [channelId]: [...(prev[channelId] || []), msg]
+        }));
+
+        if (channelId !== currentChannelRef.current) {
+          setUnread((prev) => ({
+            ...prev,
+            [channelId]: Math.min((prev[channelId] || 0) + 1, 99)
+          }));
+        }
+      }
     });
 
     return () => {
-      if (typeof unsub === "function") {
-        try { unsub(); } catch (e) {}
-      }
+      if (typeof unsub === "function") unsub();
     };
+  }, []);
 
-  }, [channelTypeMap]);
 
   useEffect(() => {
     if (currentChannel.type === "TEXT") {

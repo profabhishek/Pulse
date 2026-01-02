@@ -13,13 +13,17 @@ export default function App() {
     setProfile(p);
     setLoading(false);
 
+    if (p) {
+      window.__selfUserId = p.user_id;
+    }
+
     if (!p) {
       setShowProfileModal(true);
     } else {
-      // SUBSCRIBE TO ALL TEXT CHANNELS ON APP START
       subscribeToAllTextChannels();
     }
   };
+
 
   useEffect(() => {
     document.title = "Pulse";

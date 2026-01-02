@@ -12,10 +12,8 @@
 
 .voice-wrap{
   width:100%;
-  max-width:1200px;
   height:100%;
   padding:28px;
-  border-radius:22px;
 
   background:
     radial-gradient(1200px 520px at top, rgba(124,140,255,0.14), transparent 42%),

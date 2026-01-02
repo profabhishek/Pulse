@@ -14,7 +14,6 @@ export default function MessageInput({ profile }) {
 
   useEffect(() => {
     if (!textareaRef.current) return;
-    // auto-resize textarea
     textareaRef.current.style.height = "0px";
     textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
   }, [text, attachments]);
@@ -22,14 +21,33 @@ export default function MessageInput({ profile }) {
   const sendMessage = async () => {
     if (!text.trim() && attachments.length === 0) return;
 
-    const payload = {
-      userId: profile.user_id,
-      name: profile.name,
-      avatar: profile.avatar_path,
-      text: text.trim(),
-      ts: Date.now(),
-      files: attachments
-    };
+    let avatarToSend = profile.avatar_path
+    ? `pulse-avatar://${profile.avatar_path}`
+    : undefined;
+
+    if (
+      avatarToSend &&
+      typeof avatarToSend === "string" &&
+      !avatarToSend.startsWith("data:")
+    ) {
+      if (window.electronAPI?.readAvatar) {
+        const base64Avatar = await window.electronAPI.readAvatar(avatarToSend);
+        if (base64Avatar) {
+          avatarToSend = base64Avatar;
+        } else {
+          avatarToSend = undefined;
+        }
+      }
+    }
+
+  const payload = {
+    type: "message",
+    userId: profile.user_id,
+    name: profile.name,
+    avatarHash: profile.avatar_hash,
+    text: text.trim(),
+    timestamp: Date.now()
+  };
 
     publishTextMessage(currentChannel.id, payload);
 

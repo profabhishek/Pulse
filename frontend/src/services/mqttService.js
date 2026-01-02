@@ -5,7 +5,6 @@ const TEXT_CHANNELS = ["general", "random"];
 const MQTT_URL = "wss://broker.hivemq.com:8884/mqtt"; 
 const RECONNECT_PERIOD = 3000; // ms
 
-
 let client = null;
 let _onMessage = null;
 let _queue = []; 
@@ -27,7 +26,6 @@ function safeParse(buf) {
 function ensureClient() {
   if (!client) throw new Error("MQTT client not initialized. Call connectMQTT() first.");
 }
-
 
 export function connectMQTT(onMessage, opts = {}) {
   if (client) {

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import MessageInput from "./MessageInput";
 import { useApp } from "../state/appStore";
 import "../styles/chatView.css";
+import noDp from "../assets/no-dp.svg";
 
 function Attachment({ file, onOpen }) {
   const [objectUrl, setObjectUrl] = useState(null);
@@ -154,6 +155,36 @@ function MediaModal({ open, item, onClose }) {
   );
 }
 
+const formatMessageTime = (timestamp) => {
+  if (!timestamp && timestamp !== 0) return "";
+
+  // normalize numeric strings
+  if (typeof timestamp === "string" && /^\d+$/.test(timestamp)) {
+    timestamp = Number(timestamp);
+  }
+
+  // if timestamp looks like seconds (e.g. 10-digit), convert to ms
+  if (typeof timestamp === "number" && timestamp < 1e12) {
+    timestamp = timestamp * 1000;
+  }
+
+  const msgTime = new Date(timestamp);
+  if (Number.isNaN(msgTime.getTime())) return ""; // invalid date guard
+
+  const now = Date.now();
+  const diffMs = now - msgTime.getTime();
+
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMinutes / 60);
+
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+
+  // Older than 24 hours → show time (you can switch to date+time if you prefer)
+  return msgTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
 export default function ChatView({ profile }) {
   const { currentChannel, messages } = useApp();
   const channelMessages = messages?.[currentChannel?.id] || [];
@@ -164,6 +195,13 @@ export default function ChatView({ profile }) {
 
   const [modalItem, setModalItem] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  const [, forceTick] = useState(0);
+
+  useEffect(() => {
+    const i = setInterval(() => forceTick(t => t + 1), 60000);
+    return () => clearInterval(i);
+  }, []);
 
   useEffect(() => {
     const el = messagesRef.current;
@@ -202,21 +240,19 @@ export default function ChatView({ profile }) {
     setTimeout(() => setModalItem(null), 240);
   };
 
-const safeOpenExternal = (url) => {
-
-  if (window?.electronAPI?.openExternal) {
-    try {
-      window.electronAPI.openExternal(url);
-      return;
-    } catch (e) {
-      console.error("openExternal failed:", e);
+  const safeOpenExternal = (url) => {
+    if (window?.electronAPI?.openExternal) {
+      try {
+        window.electronAPI.openExternal(url);
+        return;
+      } catch (e) {
+        console.error("openExternal failed:", e);
+      }
     }
-  }
-  if (typeof window !== "undefined" && window.open) {
-    window.open(url, "_blank");
-  }
-};
-
+    if (typeof window !== "undefined" && window.open) {
+      window.open(url, "_blank");
+    }
+  };
 
   const linkifyText = (text) => {
     if (!text) return text;
@@ -231,7 +267,6 @@ const safeOpenExternal = (url) => {
             className="message-link"
             onClick={(e) => {
               e.preventDefault();
-
               if (window?.electronAPI?.openExternal) {
                 window.electronAPI.openExternal(part);
               }
@@ -252,6 +287,54 @@ const safeOpenExternal = (url) => {
     const textSlice = String(msg?.text ?? "").slice(0, 30).replace(/\s+/g, "_");
     return `${name}-${ts}-${textSlice}-${i}`;
   };
+
+// ---------- avatar helper ----------
+const getAvatarSrc = (msgOrAvatar) => {
+  // allow passing either whole msg or avatar string
+  if (!msgOrAvatar) return noDp;
+
+  // if whole message object passed
+  if (typeof msgOrAvatar === "object") {
+    const m = msgOrAvatar;
+
+    // 1) prefer avatarHash (new system)
+    if (m.avatarHash && typeof m.avatarHash === "string") {
+      return `pulse-avatar://${m.avatarHash}.png`;
+    }
+
+    // 2) legacy avatar support (data / http / pulse-avatar)
+    if (typeof m.avatar === "string") {
+      const a = m.avatar;
+      if (
+        a.startsWith("data:") ||
+        a.startsWith("http://") ||
+        a.startsWith("https://") ||
+        a.startsWith("pulse-avatar://")
+      ) {
+        return a;
+      }
+    }
+
+    return noDp;
+  }
+
+  // if a string was passed
+  if (typeof msgOrAvatar === "string") {
+    const a = msgOrAvatar;
+    if (
+      a.startsWith("data:") ||
+      a.startsWith("http://") ||
+      a.startsWith("https://") ||
+      a.startsWith("pulse-avatar://")
+    ) {
+      return a;
+    }
+    return noDp;
+  }
+
+  return noDp;
+};
+
 
   return (
     <div className="chat-view">
@@ -274,14 +357,14 @@ const safeOpenExternal = (url) => {
           return (
             <div key={rowKey} className="message-row">
               {showAvatar ? (
-                <img
-                  src={msg.avatar ? `pulse-avatar://${msg.avatar}` : undefined}
-                  className="avatar-profile"
-                  alt={msg.name || "avatar"}
-                  onError={(e) => {
-                    e.currentTarget.style.visibility = "hidden";
-                  }}
-                />
+              <img
+                src={getAvatarSrc(msg)}
+                className="avatar-profile"
+                alt={msg.name || "avatar"}
+                onError={(e) => {
+                  e.currentTarget.src = noDp;
+                }}
+              />
               ) : (
                 <div className="avatar-profile-spacer" />
               )}
@@ -290,7 +373,12 @@ const safeOpenExternal = (url) => {
                 {showAvatar && (
                   <div className="message-header">
                     <span className="username">{msg.name}</span>
-                    <span className="timestamp">just now</span>
+                    <span className="timestamp">
+                      {formatMessageTime(
+                        msg.timestamp || msg.time || msg.createdAt
+                      )}
+                    </span>
+
                   </div>
                 )}
 
@@ -330,7 +418,6 @@ const safeOpenExternal = (url) => {
           );
         })}
       </div>
-
 
       {showScrollButton && (
         <button className="scroll-to-bottom" onClick={scrollToBottom} aria-label="Jump to latest message">

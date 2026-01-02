@@ -11,13 +11,15 @@ db.exec(`
     user_id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     avatar_path TEXT NOT NULL,
+    avatar_hash TEXT NOT NULL,
     created_at INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS avatar_cache (
     user_id TEXT PRIMARY KEY,
-    image_path TEXT NOT NULL,
-    fetched_at INTEGER
+    avatar_hash TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    updated_at INTEGER
   );
 `);
 
